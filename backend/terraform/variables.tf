@@ -1,6 +1,6 @@
 variable "project_name"{
 type 		= string
-description 	= "project name"
+description 	= "fan-chat"
 }
 
 variable "aws_region"{
