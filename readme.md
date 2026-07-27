@@ -1,7 +1,7 @@
 # FanChat
 
 
-A browser plugin and related infrastructure to embed live chat in to livestreams that don't support chat (such as [nugs](nugs.net))
+A browser plugin and related infrastructure to embed live chat in to livestreams that don't support chat (such as [nugs](https://www.nugs.net))
 
 ## How it works (WIP details tbc)
 

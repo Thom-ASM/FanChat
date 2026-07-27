@@ -1,0 +1,19 @@
+{
+  "name": "fanchat-plugin",
+  "version": "1.0.0",
+  "description": "chromeplugin",
+  "license": "ISC",
+  "author": "",
+  "type": "esnext",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.2.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
+  }
+}
