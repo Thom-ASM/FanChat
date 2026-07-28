@@ -1,3 +1,10 @@
 .env
 **package-lock.json**
 **node_modules**
+# Ignore the local provider binaries
+.terraform/
+
+# Ignore local state files
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
