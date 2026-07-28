@@ -1,6 +1,7 @@
 variable "project_name" {
   type        = string
-  description = "fan-chat"
+  description = "application project name"
+  default     = "fan-chat"
 }
 
 variable "aws_region" {

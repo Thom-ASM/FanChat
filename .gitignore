@@ -3,7 +3,7 @@
 **node_modules**
 # Ignore the local provider binaries
 .terraform/
-
+tfplan
 # Ignore local state files
 *.tfstate
 *.tfstate.backup
