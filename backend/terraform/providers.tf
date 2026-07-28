@@ -4,7 +4,6 @@ provider "aws" {
   default_tags {
     tags = {
       Project     = "fan-chat"
-      Environment = var.environment
       ManagedBy   = "terraform"
     }
   }
