@@ -1,7 +1,8 @@
 export type stream = {
-  artistName: string;
-  startTime: string;
-  ytChatURL: string;
+  artist: string;
+  startsAt: string;
+  youtubeVideoId: string;
+  status:string,
 };
 
 export type renderState = "menu" | "popup" | "chat";

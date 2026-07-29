@@ -1,4 +1,5 @@
 import { renderState } from "./types.ts";
+import { createMaterialIcon } from "./utils.ts";
 
 export function render() {
   const root = document.createElement("div");
@@ -16,10 +17,13 @@ export function render() {
         menu();
         break;
       case "close-menu":
-        // Update state, then close the panel.
+        tearDown();
+        popup();
         break;
 
       case "select-stream":
+        tearDown();
+        loadStream();
         // Use customEvent.detail.streamId.
         break;
     }
@@ -57,6 +61,11 @@ function popup() {
     );
   });
 
+  const text = document.createElement("p");
+  text.innerText = "Chat";
+
+  button.append(text);
+
   getRoot().appendChild(button);
 }
 
@@ -70,15 +79,10 @@ function menu() {
   const streams = document.createElement("div");
   streams.id = "fan-chat-streams-list";
 
-  menu.appendChild(streams);
+  menu.append(navBar("open-menu"), streams);
 
   const streamNodes = streamData.events.map((liveStream) => {
-    const streamNode = document.createElement("button");
-
-    streamNode.id = `fan-chat-stream-${liveStream.artist}`;
-
-    streamNode.innerText = liveStream.artist;
-    return streamNode;
+    return streamContainer(liveStream);
   });
 
   streams.append(...streamNodes);
@@ -92,7 +96,7 @@ function loadStream() {
   frame.referrerPolicy = "origin";
   frame.src =
     "https://www.youtube.com/live_chat" +
-    "?v=rJt1bdqxSn0" +
+    "?v=SI1Ul5-Ldb4" +
     "&embed_domain=play.nugs.net";
 
   frame.style.position = "fixed";
@@ -102,5 +106,83 @@ function loadStream() {
   frame.style.height = "700px";
   frame.style.zIndex = "2147483647";
 
-  document.body.appendChild(frame);
+  getRoot().append(navBar(), frame);
+}
+
+function livePill() {
+  const pill = document.createElement("span");
+
+  pill.id = "fan-chat-live-pill";
+
+  pill.innerText = "LIVE";
+
+  return pill;
+}
+
+function streamContainer(liveStream: stream) {
+  const streamContainer = document.createElement("div");
+
+  streamContainer.id = "fan-chat-stream-container";
+
+  const streamContent = document.createElement("div");
+  const streamTitle = document.createElement("h2");
+  streamTitle.innerText = liveStream.artist;
+
+  const pill = livePill();
+
+  streamContent.append(streamTitle, pill);
+
+  const loadChat = document.createElement("button");
+  loadChat.innerText = "Load Chat";
+
+  loadChat.addEventListener("click", () => {
+    loadChat.dispatchEvent(
+      new CustomEvent("fan-chat-action", {
+        bubbles: true,
+        detail: {
+          action: "select-stream",
+        },
+      }),
+    );
+  });
+
+  streamContainer.append(streamContent, loadChat);
+
+  return streamContainer;
+}
+
+function navBar(state: "open-menu" | "close-menu" | "select-stream") {
+  const nav = document.createElement("div");
+  nav.id = "fan-chat-nav-bar";
+
+  let nodes = [];
+
+  const backButton = document.createElement("button");
+  backButton.id = "fan-chat-nav-bar-back-button";
+  backButton.innerText = state === "open-menu" ? "Close" : "Back";
+
+  backButton.addEventListener("click", () => {
+    backButton.dispatchEvent(
+      new CustomEvent("fan-chat-action", {
+        bubbles: true,
+        detail: {
+          action: "close-menu",
+        },
+      }),
+    );
+  });
+
+  nodes.push(backButton);
+
+  if (state === "open-menu") {
+    const title = document.createElement("h1");
+    title.id = "fan-Chat-Title";
+    title.innerText = "Fan Chat";
+
+    nodes.push(title);
+  }
+
+  nav.append(...nodes);
+
+  return nav;
 }
