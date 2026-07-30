@@ -96,8 +96,9 @@ function loadStream() {
   frame.referrerPolicy = "origin";
   frame.src =
     "https://www.youtube.com/live_chat" +
-    "?v=SI1Ul5-Ldb4" +
-    "&embed_domain=play.nugs.net";
+    "?v=Dx5qFachd3A" +
+    "&embed_domain=play.nugs.net" +
+    "&dark_theme=1";
 
   frame.style.position = "fixed";
   frame.style.top = "20px";

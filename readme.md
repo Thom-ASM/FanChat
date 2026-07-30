@@ -1,6 +1,7 @@
 # FanChat
 
 ![screenshot of the temp UI for fan chat](./assets/tmp-mockup2.png)
+![screenshot of the temp UI for fan chat](./assets/tmp-mockup3.png)
 
 A browser plugin and related infrastructure to embed live chat in to livestreams that don't support chat (such as [nugs](https://www.nugs.net))
 
