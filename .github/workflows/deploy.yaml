@@ -24,6 +24,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/orchestrator/go.mod
+          cache-dependency-path: backend/orchestrator/go.sum
+      
+      - name: Test orchestrator
+        working-directory: backend/orchestrator
+        run: go test ./...
+      
+      - name: Build orchestrator Lambda
+        working-directory: backend/orchestrator
+        run: |
+          rm -rf dist
+          mkdir -p dist/package
+      
+          CGO_ENABLED=0 \
+          GOOS=linux \
+          GOARCH=arm64 \
+          go build \
+            -tags lambda.norpc \
+            -trimpath \
+            -ldflags="-s -w" \
+            -o dist/package/bootstrap \
+            ./cmd/orchestrator
+      
+          cd dist/package
+          zip -q ../orchestrator.zip bootstrap
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
