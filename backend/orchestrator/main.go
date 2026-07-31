@@ -9,9 +9,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/lambda/handlertrace"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -47,303 +50,51 @@ type App struct {
 	youtube *youtube.Service
 }
 
-func main() {
-	ctx := context.Background()
+func handleRequest(ctx context.Context, event events.S3Event) error {
 
-	app, err := newApp(ctx)
+	// get the streams from the event,
+	sdkConfig, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		log.Fatalf("initialise application: %v", err)
+		log.Printf("failed to load default config: %s", err)
+		return err
 	}
 
-	lambda.Start(app.handle)
-}
+	s3Client := s3.NewFromConfig(sdkConfig)
 
-func newApp(ctx context.Context) (*App, error) {
-	secretARN := os.Getenv("YOUTUBE_OAUTH_SECRET_ARN")
-	if secretARN == "" {
-		return nil, errors.New("YOUTUBE_OAUTH_SECRET_ARN is required")
-	}
+	for _, record := range event.Records {
+		bucket := record.S3.Bucket.Name
+		key := record.S3.Object.URLDecodedKey
 
-	awsConfig, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("load AWS config: %w", err)
-	}
+		file, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+			Bucket: &bucket,
+			Key:    &key,
+		})
 
-	secretsClient := secretsmanager.NewFromConfig(awsConfig)
+		var upcomingEvents []Event
 
-	output, err := secretsClient.GetSecretValue(
-		ctx,
-		&secretsmanager.GetSecretValueInput{
-			SecretId: aws.String(secretARN),
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("read YouTube OAuth secret: %w", err)
-	}
+		data := json.NewDecoder(file.Body).Decode(&upcomingEvents)
 
-	if output.SecretString == nil {
-		return nil, errors.New("YouTube OAuth secret has no SecretString")
-	}
+		// we only want the next 10 events
 
-	var secret OAuthSecret
+		var recentUpcoming []Event = upcomingEvents[0:9]
 
-	if err := json.Unmarshal(
-		[]byte(*output.SecretString),
-		&secret,
-	); err != nil {
-		return nil, fmt.Errorf("decode YouTube OAuth secret: %w", err)
-	}
+		//Compare against dynamo db
 
-	if secret.ClientID == "" {
-		return nil, errors.New("YouTube OAuth client_id is missing")
-	}
-
-	if secret.ClientSecret == "" {
-		return nil, errors.New("YouTube OAuth client_secret is missing")
-	}
-
-	if secret.RefreshToken == "" {
-		return nil, errors.New("YouTube OAuth refresh_token is missing")
-	}
-
-	oauthConfig := &oauth2.Config{
-		ClientID:     secret.ClientID,
-		ClientSecret: secret.ClientSecret,
-		Endpoint:     google.Endpoint,
-		Scopes: []string{
-			youtubeScope,
-		},
-	}
-
-	token := &oauth2.Token{
-		RefreshToken: secret.RefreshToken,
-	}
-
-	httpClient := oauthConfig.Client(ctx, token)
-
-	youtubeService, err := youtube.NewService(
-		ctx,
-		option.WithHTTPClient(httpClient),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create YouTube service: %w", err)
-	}
-
-	return &App{
-		youtube: youtubeService,
-	}, nil
-}
-
-func (app *App) handle(
-	ctx context.Context,
-	event Event,
-) (Result, error) {
-	log.Printf(
-		"handling action=%q eventId=%q",
-		event.Action,
-		event.EventID,
-	)
-
-	switch event.Action {
-	case "prepare":
-		return app.prepareBroadcast(ctx, event)
-
-	default:
-		return Result{}, fmt.Errorf(
-			"unsupported action %q",
-			event.Action,
-		)
-	}
-}
-
-func (app *App) prepareBroadcast(
-	ctx context.Context,
-	event Event,
-) (Result, error) {
-	if err := validatePrepareEvent(event); err != nil {
-		return Result{}, err
-	}
-
-	start, err := time.Parse(
-		time.RFC3339,
-		event.ScheduledStart,
-	)
-	if err != nil {
-		return Result{}, fmt.Errorf(
-			"parse scheduledStart: %w",
-			err,
-		)
-	}
-
-	end, err := time.Parse(
-		time.RFC3339,
-		event.ScheduledEnd,
-	)
-	if err != nil {
-		return Result{}, fmt.Errorf(
-			"parse scheduledEnd: %w",
-			err,
-		)
-	}
-
-	if !end.After(start) {
-		return Result{}, errors.New(
-			"scheduledEnd must be after scheduledStart",
-		)
-	}
-
-	broadcast := &youtube.LiveBroadcast{
-		Snippet: &youtube.LiveBroadcastSnippet{
-			Title:              event.Title,
-			Description:        "FanChat event: " + event.EventID,
-			ScheduledStartTime: start.UTC().Format(time.RFC3339),
-			ScheduledEndTime:   end.UTC().Format(time.RFC3339),
-		},
-
-		Status: &youtube.LiveBroadcastStatus{
-			PrivacyStatus:           "unlisted",
-			SelfDeclaredMadeForKids: false,
-
-			// False is otherwise omitted by the generated JSON
-			// marshaller, so explicitly include it.
-			ForceSendFields: []string{
-				"SelfDeclaredMadeForKids",
-			},
-		},
-
-		ContentDetails: &youtube.LiveBroadcastContentDetails{
-			EnableEmbed:     true,
-			EnableAutoStart: false,
-			EnableAutoStop:  false,
-
-			MonitorStream: &youtube.MonitorStreamInfo{
-				EnableMonitorStream: boolPtr(false),
-			},
-
-			// These fields are plain bool values. Explicitly include
-			// them even though their configured value is false.
-			ForceSendFields: []string{
-				"EnableAutoStart",
-				"EnableAutoStop",
-			},
-		},
-	}
-
-	created, err := app.youtube.LiveBroadcasts.
-		Insert(
-			[]string{
-				"id",
-				"snippet",
-				"status",
-				"contentDetails",
-			},
-			broadcast,
-		).
-		Context(ctx).
-		Do()
-	if err != nil {
-		return Result{}, fmt.Errorf(
-			"create YouTube broadcast: %w",
-			err,
-		)
-	}
-
-	if created.Id == "" {
-		return Result{}, errors.New(
-			"YouTube created a broadcast without returning an ID",
-		)
-	}
-
-	log.Printf(
-		"created YouTube broadcast broadcastId=%q eventId=%q",
-		created.Id,
-		event.EventID,
-	)
-
-	_, err = app.youtube.LiveBroadcasts.
-		Bind(
-			created.Id,
-			[]string{
-				"id",
-				"snippet",
-				"status",
-				"contentDetails",
-			},
-		).
-		StreamId(event.YouTubeStreamID).
-		Context(ctx).
-		Do()
-	if err != nil {
-		log.Printf(
-			"binding failed; deleting broadcast broadcastId=%q",
-			created.Id,
-		)
-
-		deleteErr := app.youtube.LiveBroadcasts.
-			Delete(created.Id).
-			Context(ctx).
-			Do()
-
-		if deleteErr != nil {
-			log.Printf(
-				"failed to clean up broadcast broadcastId=%q error=%v",
-				created.Id,
-				deleteErr,
-			)
+		if err != nil {
+			log.Printf("error failed to fetch file from %s/%s: %s", bucket, key, err)
+			return err
 		}
-
-		return Result{}, fmt.Errorf(
-			"bind broadcast %q to stream %q: %w",
-			created.Id,
-			event.YouTubeStreamID,
-			err,
-		)
 	}
 
-	var liveChatID string
+	//Compare against dynamo db
 
-	if created.Snippet != nil {
-		liveChatID = created.Snippet.LiveChatId
-	}
+	//create streams as required
 
-	log.Printf(
-		"bound broadcast broadcastId=%q streamId=%q",
-		created.Id,
-		event.YouTubeStreamID,
-	)
-
-	return Result{
-		EventID:            event.EventID,
-		YouTubeBroadcastID: created.Id,
-		YouTubeVideoID:     created.Id,
-		YouTubeLiveChatID:  liveChatID,
-	}, nil
-}
-
-func validatePrepareEvent(event Event) error {
-	if event.EventID == "" {
-		return errors.New("eventId is required")
-	}
-
-	if event.Title == "" {
-		return errors.New("title is required")
-	}
-
-	if event.ScheduledStart == "" {
-		return errors.New("scheduledStart is required")
-	}
-
-	if event.ScheduledEnd == "" {
-		return errors.New("scheduledEnd is required")
-	}
-
-	if event.YouTubeStreamID == "" {
-		return errors.New("youtubeStreamId is required")
-	}
+	//generate eventbridge schedule
 
 	return nil
 }
 
-func boolPtr(value bool) *bool {
-	return &value
+func main() {
+	lambda.Start(handleRequest())
 }
