@@ -117,13 +117,13 @@ func bindLiveStreamToBroadcast(service *youtube.Service, broadcastId string, liv
 	return response.Id
 }
 
-func createHTTPClient(ctx context.Context, oauthConfig *oauth2.Config, awsConfig aws.Config) *http.Client {
+func createHTTPClient(ctx context.Context, oauthConfig *oauth2.Config, awsConfig aws.Config, secretName string) *http.Client {
 
 	// fetch from aws
 	svc := secretsmanager.NewFromConfig(awsConfig)
 
 	secret, err := svc.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
-		SecretId:     aws.String(""),
+		SecretId:     aws.String(secretName),
 		VersionStage: aws.String("AWSCURRENT"),
 	})
 
@@ -187,12 +187,12 @@ func getSecretsManagerValue(ctx context.Context, smCLient *secretsmanager.Client
 func handleRequest(ctx context.Context, event events.S3Event) error {
 
 	//init aws service clients and misc config
-	var DbTableName = os.Getenv("YOUTUBE_STREAM_TABLE_NAME")
-	var YTOauthConfig = os.Getenv("OAUTH_CONFIG")
-
+	DbTableName := os.Getenv("YOUTUBE_STREAM_TABLE_NAME")
+	YTOauthConfig := os.Getenv("YOUTUBE_OAUTH_SECRET_ARN")
 	ecsClusterArn := os.Getenv("ECS_CLUSTER_ARN")
 	taskDefinitionArn := os.Getenv("ECS_TASK_DEFINITION_ARN")
 	schedulerRoleArn := os.Getenv("SCHEDULER_ROLE_ARN")
+	YTTokenSecretName := os.Getenv("YOUTUBE_TOKEN_SECRET_ARN")
 
 	sdkConfig, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -218,7 +218,7 @@ func handleRequest(ctx context.Context, event events.S3Event) error {
 		log.Fatalf("failed to create oauthConfig %v", err)
 	}
 
-	httpClient := createHTTPClient(ctx, googleOauthConfig, sdkConfig)
+	httpClient := createHTTPClient(ctx, googleOauthConfig, sdkConfig, YTTokenSecretName)
 
 	ytService, err := youtube.New(httpClient)
 
