@@ -49,8 +49,8 @@ jobs:
             -trimpath \
             -ldflags="-s -w" \
             -o dist/package/bootstrap \
-            ./cmd/orchestrator
-      
+            .
+          
           cd dist/package
           zip -q ../orchestrator.zip bootstrap
 
