@@ -190,6 +190,10 @@ func handleRequest(ctx context.Context, event events.S3Event) error {
 	var DbTableName = os.Getenv("YOUTUBE_STREAM_TABLE_NAME")
 	var YTOauthConfig = os.Getenv("OAUTH_CONFIG")
 
+	ecsClusterArn := os.Getenv("ECS_CLUSTER_ARN")
+	taskDefinitionArn := os.Getenv("ECS_TASK_DEFINITION_ARN")
+	schedulerRoleArn := os.Getenv("SCHEDULER_ROLE_ARN")
+
 	sdkConfig, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		log.Printf("failed to load default config: %s", err)

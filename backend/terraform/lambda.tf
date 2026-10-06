@@ -78,6 +78,9 @@ resource "aws_lambda_function" "orchestrator" {
   environment {
     variables = {
       YOUTUBE_OAUTH_SECRET_ARN = aws_secretsmanager_secret.youtube_oauth.arn
+      ECS_CLUSTER_ARN          = aws_ecs_cluster.encoder_ecs_cluster.arn
+      ECS_TASK_DEFINITION_ARN  = aws_ecs_task_definition.encoder_service.arn
+      SCHEDULER_ROLE_ARN       = aws_iam_role.scheduler_role.arn
     }
   }
 
