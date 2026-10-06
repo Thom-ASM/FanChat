@@ -20,3 +20,4 @@ A pre-encoded file (default is a plain black image but could be anything) is ing
 Each stream can then have up to 3 broadcasts (which is where we will embed the chat from)
 
 Once the chat is created, the CDN is updated with the latest data allowing for it to be read downstream
+![Arch overview](./assets/arch.PNG)
