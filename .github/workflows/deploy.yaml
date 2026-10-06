@@ -105,5 +105,5 @@ jobs:
           ECR_REPOSITORY: encoder_repository
           IMAGE_TAG: latest
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./encoder
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
