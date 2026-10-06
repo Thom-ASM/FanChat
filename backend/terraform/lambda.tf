@@ -73,7 +73,7 @@ resource "aws_lambda_function" "orchestrator" {
   ]
 
   memory_size = 256
-  timeout     = 30
+  timeout     = 60
 
   environment {
     variables = {
